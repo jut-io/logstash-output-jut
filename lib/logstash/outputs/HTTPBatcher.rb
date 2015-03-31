@@ -2,7 +2,7 @@
 require "logstash/namespace"
 require "json"
 require 'thread'
-require 'net/http'
+require 'typhoeus'
 require "uri"
 
 class LogStash::Outputs::HTTPBatcher
@@ -10,14 +10,16 @@ class LogStash::Outputs::HTTPBatcher
     @mutex = Mutex.new
     @headers = headers
     @content_type = "application/json"
-    @url = URI(url)
+    @url = url
     @queue = []
     @interval = interval
+    @hydra = Typhoeus::Hydra.new(max_concurrency: 100)
     @logger = logger
     @req_threads = Array.new(threads) { create_thread() }
     @sent = 0 # For debugging use
     @limit = limit
     @verbose = verbose
+    @request_thread = hydra_thread()
   end # def initialize
 
   def receive(event)
@@ -26,13 +28,20 @@ class LogStash::Outputs::HTTPBatcher
     end
   end # def receive
 
+  def hydra_thread
+    return Thread.new do 
+      loop do
+        @hydra.run
+      end
+    end
+  end
+
   def create_thread
     # Creates a thread that makes a request at the given interval
     return Thread.new do
-      Thread.current["agent"] = Net::HTTP.new(@url.host, @url.port)
       loop do
         time = make_request
-        if @verbose
+        if @verbose && time > 0
           puts "Request time: #{time.to_s}"
         end
         if time < @interval
@@ -64,7 +73,13 @@ class LogStash::Outputs::HTTPBatcher
     end
     if !Thread.current["queue"].empty?
       body = Thread.current["queue"].to_json
-      response = Thread.current["agent"].post(@url.path, body, headers)
+      @hydra.queue(Typhoeus::Request.new(
+          @url,
+          method: :post,
+          body: body,
+          headers: headers
+        )
+      )
     end
     end_time = Time.now
     time_elapsed = end_time - beginning
