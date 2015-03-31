@@ -31,14 +31,20 @@ class LogStash::Outputs::HTTPBatcher
     return Thread.new do
       Thread.current["agent"] = FTW::Agent.new
       loop do
-        make_request
-        sleep(@interval);
+        time = make_request
+        if @verbose
+          puts "Request time: #{time.to_s}"
+        end
+        if time < @interval
+          sleep(@interval - time)
+        end
       end
     end
   end # def create_thread
 
   def make_request
-    return if @queue.empty?
+    return 0 if @queue.empty?
+    beginning = Time.now
     request = Thread.current["agent"].post(@url)
     request["Content-Type"] = @content_type
     if @headers
@@ -59,7 +65,11 @@ class LogStash::Outputs::HTTPBatcher
       request.body = Thread.current["queue"].to_json
       response = Thread.current["agent"].execute(request)
       rbody = response.read_body
+      time_elapsed = end_time - beginning
     end
+    end_time = Time.now
+    time_elapsed = end_time - beginning
+    return time_elapsed
   rescue Exception => e
     if @verbose
       @logger.warn("Unhandled exception", :request => request, :exception => e, :stacktrace => e.backtrace)
