@@ -2,7 +2,7 @@
 require "logstash/namespace"
 require "json"
 require 'thread'
-require "ftw"
+require 'net/http'
 require "uri"
 
 class LogStash::Outputs::HTTPBatcher
@@ -10,7 +10,7 @@ class LogStash::Outputs::HTTPBatcher
     @mutex = Mutex.new
     @headers = headers
     @content_type = "application/json"
-    @url = url
+    @url = URI(url)
     @queue = []
     @interval = interval
     @logger = logger
@@ -29,7 +29,7 @@ class LogStash::Outputs::HTTPBatcher
   def create_thread
     # Creates a thread that makes a request at the given interval
     return Thread.new do
-      Thread.current["agent"] = FTW::Agent.new
+      Thread.current["agent"] = Net::HTTP.new(@url.host, @url.port)
       loop do
         time = make_request
         if @verbose
@@ -45,8 +45,9 @@ class LogStash::Outputs::HTTPBatcher
   def make_request
     return 0 if @queue.empty?
     beginning = Time.now
-    request = Thread.current["agent"].post(@url)
-    request["Content-Type"] = @content_type
+    headers = {}
+    headers["Content-Type"] = @content_type
+    headers["Accept"] = @content_type
     if @headers
       @headers.each do |k,v|
         request.headers[k] = v
@@ -62,9 +63,8 @@ class LogStash::Outputs::HTTPBatcher
       end
     end
     if !Thread.current["queue"].empty?
-      request.body = Thread.current["queue"].to_json
-      response = Thread.current["agent"].execute(request)
-      rbody = response.read_body
+      body = Thread.current["queue"].to_json
+      response = Thread.current["agent"].post(@url.path, body, headers)
     end
     end_time = Time.now
     time_elapsed = end_time - beginning
