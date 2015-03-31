@@ -65,7 +65,6 @@ class LogStash::Outputs::HTTPBatcher
       request.body = Thread.current["queue"].to_json
       response = Thread.current["agent"].execute(request)
       rbody = response.read_body
-      time_elapsed = end_time - beginning
     end
     end_time = Time.now
     time_elapsed = end_time - beginning
