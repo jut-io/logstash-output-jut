@@ -22,4 +22,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "logstash-codec-plain"
   s.add_development_dependency "logstash-devutils"
   s.add_runtime_dependency 'ftw', ['~> 0.0.40']
+  s.add_runtime_dependency 'typhoeus', ">= 0.7.1"
 end

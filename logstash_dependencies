@@ -1,0 +1,2 @@
+apt-get install ruby gem build-essential ruby-dev jruby
+gem install typhoeus

@@ -56,6 +56,13 @@ At this point any modifications to the plugin code will be applied to this local
 
 - Copy the files batch_http.rb and HTTPBatcher.rb into /path/to/logstash-1.4.2/lib/logstash/outputs/
 
+- cd to /path/to/logstash-1.4.2
+
+- Run the following command
+```sh
+env GEM_HOME=vendor/bundle/jruby/1.9 java -jar vendor/jar/jruby-complete-1.7.11.jar -S gem install typhoeus
+```
+
 - Run Logstash with your plugin
 ```sh
 bin/logstash -e 'input { stdin {} } output {batch_http{ url => URL }}'
