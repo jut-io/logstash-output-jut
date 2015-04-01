@@ -81,7 +81,7 @@ class LogStash::Outputs::HTTPBatcher
       )
       request.on_complete do |response|
         if @verbose
-          puts "Request time: #{response.total_time}"
+          puts "Total time: #{response.total_time}, Connect Time: #{response.connect_time}, Transfer Started: #{response.starttransfer_time}"
         end
       end
       @hydra.queue(request)
