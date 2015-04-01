@@ -42,7 +42,7 @@ class LogStash::Outputs::HTTPBatcher
       loop do
         time = make_request
         if @verbose && time > 0
-          puts "Request time: #{time.to_s}"
+          puts "Time to queue request: #{time.to_s}"
         end
         if time < @interval
           sleep(@interval - time)
@@ -73,13 +73,18 @@ class LogStash::Outputs::HTTPBatcher
     end
     if !Thread.current["queue"].empty?
       body = Thread.current["queue"].to_json
-      @hydra.queue(Typhoeus::Request.new(
-          @url,
-          method: :post,
-          body: body,
-          headers: headers
-        )
+      request = Typhoeus::Request.new(
+        @url,
+        method: :post,
+        body: body,
+        headers: headers
       )
+      request.on_complete do |response|
+        if @verbose
+          puts "Request time: #{response.total_time}"
+        end
+      end
+      @hydra.queue(request)
     end
     end_time = Time.now
     time_elapsed = end_time - beginning
