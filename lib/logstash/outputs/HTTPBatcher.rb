@@ -84,7 +84,9 @@ class LogStash::Outputs::HTTPBatcher
           puts "Total time: #{response.total_time}, Connect Time: #{response.connect_time}, Transfer Started: #{response.starttransfer_time}"
         end
       end
-      @hydra.queue(request)
+      @mutex.synchronize do
+        @hydra.queue(request)
+      end
     end
     end_time = Time.now
     time_elapsed = end_time - beginning
