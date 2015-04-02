@@ -33,7 +33,9 @@ class LogStash::Outputs::HTTPBatcher
       loop do
         time = make_request
         if @verbose
-          puts "Request time: #{time.to_s}"
+          if time > 0
+            puts "Request time: #{time.to_s}"
+          end
         end
         if time < @interval
           sleep(@interval - time)
@@ -43,7 +45,7 @@ class LogStash::Outputs::HTTPBatcher
   end # def create_thread
 
   def make_request
-    return 0 if @queue.empty?
+    return -1 if @queue.empty?
     beginning = Time.now
     request = Thread.current["agent"].post(@url)
     request["Content-Type"] = @content_type
