@@ -97,5 +97,6 @@ class LogStash::Outputs::HTTPBatcher
     else
       @logger.warn("Unhandled exception", :host => request["host"], :exception => e, :stacktrace => e.backtrace)
     end
+    return -1;
   end # def make_request
 end
