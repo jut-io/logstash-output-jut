@@ -33,6 +33,7 @@ bundle exec rspec
 ```
 
 ### 2. Running your unpublished Plugin in Logstash
+In order to run this plugin, please run `gem install typhoeus` beforehand.
 
 #### 2.1 Run in a local Logstash clone 
 
