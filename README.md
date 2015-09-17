@@ -4,7 +4,11 @@ This is a plugin for [Logstash](https://github.com/elasticsearch/logstash).
 
 ## Documentation
 
-This plugin batches multiple events into arrays of JSON objects to make requests containing multiple events.
+This plugin sends events to a [Jut](https://jut.io) data engine.
+Events are formatted to be suitable for
+[direct import via http](http://docs.jut.io/user-guide/#data_ingest_http)
+and are grouped into batches to reduce the total number of http
+transactions required to import many records.
 
 ## Developing
 
@@ -40,7 +44,7 @@ bundle exec rspec
 
 - Edit Logstash `Gemfile` and add the local plugin path, for example:
 ```ruby
-gem "logstash-output-batch_http", :path => "/your/local/logstash-output-batch_http"
+gem "logstash-output-jut", :path => "/your/local/logstash-output-jut"
 ```
 - Install plugin
 ```sh
@@ -48,17 +52,17 @@ bin/plugin install --no-verify
 ```
 - Run Logstash with your plugin
 ```sh
-bin/logstash -e 'input { stdin {} } output {batch_http{ url => URL }}'
+bin/logstash -e 'input { stdin {} } output { jut { url => URL }}'
 ```
 At this point any modifications to the plugin code will be applied to this local Logstash setup. After modifying the plugin, simply rerun Logstash.
 
 ##### 2.1.1 Version 1.4 and below
 
-- Copy the files batch_http.rb and HTTPBatcher.rb into /path/to/logstash-1.4.2/lib/logstash/outputs/
+- Copy the files jut.rb and HTTPBatcher.rb into /path/to/logstash-1.4.2/lib/logstash/outputs/
 
 - Run Logstash with your plugin
 ```sh
-bin/logstash -e 'input { stdin {} } output {batch_http{ url => URL }}'
+bin/logstash -e 'input { stdin {} } output { jut { url => URL }}'
 ```
 
 #### 2.2 Run in an installed Logstash
@@ -67,10 +71,10 @@ You can use the same **2.1** method to run your plugin in an installed Logstash 
 
 - Build your plugin gem
 ```sh
-gem build logstash-output-batch_http.gemspec
+gem build logstash-output-jut.gemspec
 ```
 - Install the plugin from the Logstash home
 ```sh
-bin/plugin install /your/local/plugin/logstash-output-batch_http.gem
+bin/plugin install /your/local/plugin/logstash-output-jut.gem
 ```
 - Start Logstash and proceed to test the plugin

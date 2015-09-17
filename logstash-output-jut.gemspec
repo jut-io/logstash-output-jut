@@ -1,12 +1,12 @@
 Gem::Specification.new do |s|
-  s.name = 'logstash-output-batch_http'
+  s.name = 'logstash-output-jut'
   s.version = "0.1.1"
   s.licenses = ["Apache License (2.0)"]
   s.summary = "Batches HTTP POST requests"
-  s.description = "logstash output plugin that posts a json array of multiple records"
-  s.authors = ["Stephan Liu - Jut, Inc."]
-  s.email = "stephan.x.liu@gmail.com"
-  s.homepage = "https://github.com/jut-io/logstash-output-batch_http"
+  s.description = "logstash output plugin that sends records to a Jut data engine"
+  s.authors = ["Jut, Inc."]
+  s.email = "josa@jut.io"
+  s.homepage = "https://github.com/jut-io/logstash-output-jut"
   s.require_paths = ["lib"]
 
   # Files

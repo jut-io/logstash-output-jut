@@ -3,7 +3,7 @@ require "logstash/outputs/base"
 require "logstash/namespace"
 require "logstash/outputs/HTTPBatcher"
 
-class LogStash::Outputs::BatchHttp < LogStash::Outputs::Base
+class LogStash::Outputs::Jut < LogStash::Outputs::Base
   # This output lets you batch JSON objects and POSTs them to
   # generic HTTP endpoints. This supports only sending JSON
   # and sends a request every X seconds.
@@ -11,7 +11,7 @@ class LogStash::Outputs::BatchHttp < LogStash::Outputs::Base
   # Additionally, you are given the option to customize
   # the headers.
 
-  config_name "batch_http"
+  config_name "jut"
   milestone 1
 
   # URL to use
