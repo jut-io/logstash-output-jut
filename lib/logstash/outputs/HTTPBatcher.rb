@@ -1,8 +1,9 @@
 # encoding: utf-8
 require "logstash/namespace"
 require "json"
-require 'thread'
-require "ftw"
+require "thread"
+require "net/https"
+require "openssl"
 require "uri"
 
 class LogStash::Outputs::HTTPBatcher
@@ -10,7 +11,7 @@ class LogStash::Outputs::HTTPBatcher
     @mutex = Mutex.new
     @headers = headers
     @content_type = "application/json"
-    @url = url
+    @url = URI.parse(url)
     @queue = []
     @interval = interval
     @logger = logger
@@ -18,7 +19,17 @@ class LogStash::Outputs::HTTPBatcher
     @sent = 0 # For debugging use
     @limit = limit
     @verbose = verbose
+
+    @stopped = false
   end # def initialize
+
+  def stop
+    @stopped = true
+
+    @req_threads.each do |thr|
+      thr.join
+    end
+  end
 
   def receive(event)
     @mutex.synchronize do
@@ -29,14 +40,14 @@ class LogStash::Outputs::HTTPBatcher
   def create_thread
     # Creates a thread that makes a request at the given interval
     return Thread.new do
-      Thread.current["agent"] = FTW::Agent.new
-      loop do
+      connection = Net::HTTP.new(@url.host, @url.port)
+      connection.use_ssl = true
+      connection.verify_mode = OpenSSL::SSL::VERIFY_PEER
+
+      Thread.current["connection"] = connection
+
+      while !@stopped || !@queue.empty? do
         time = make_request
-        if @verbose
-          if time > 0
-            puts "Request time: #{time.to_s}"
-          end
-        end
         if time < @interval
           sleep(@interval - time)
         end
@@ -47,27 +58,44 @@ class LogStash::Outputs::HTTPBatcher
   def make_request
     return -1 if @queue.empty?
     beginning = Time.now
-    request = Thread.current["agent"].post(@url)
+    request = Net::HTTP::Post.new(@url.request_uri)
+
     request["Content-Type"] = @content_type
     if @headers
       @headers.each do |k,v|
         request.headers[k] = v
       end
     end
-    Thread.current["queue"] = []
+    
+    tosend = []
     @mutex.synchronize do
       # Moves the first @limit number of events into the current thread queue
-      Thread.current["queue"] = @queue.shift(@limit)
-      @sent = @sent + Thread.current["queue"].size
+      tosend = @queue.shift(@limit)
+    end
+
+    @sent = @sent + tosend.size
+    if @verbose
+      puts "Sent: #{@sent.to_s}, Remaining: #{tosend.size}"
+    end
+
+    if !tosend.empty?
+      request.body = tosend.to_json
+      response = Thread.current["connection"].request request
+
+      status = response.code
+      rbody = response.read_body
+
+      if status != "200"
+        raise "POST failed with status #{status} (#{rbody})"
+      end
+
+
       if @verbose
-        puts "Sent: #{@sent.to_s}, Remaining: #{@queue.size}"
+        time = Time.now - beginning
+        puts "POST response in #{time.to_s} #{status} #{rbody}"
       end
     end
-    if !Thread.current["queue"].empty?
-      request.body = Thread.current["queue"].to_json
-      response = Thread.current["agent"].execute(request)
-      rbody = response.read_body
-    end
+
     end_time = Time.now
     time_elapsed = end_time - beginning
     return time_elapsed

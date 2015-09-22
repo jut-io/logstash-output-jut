@@ -40,8 +40,32 @@ class LogStash::Outputs::Jut < LogStash::Outputs::Base
   public
   def receive(event)
     return unless output?(event)
-    
+
+    # logstash wants to create "@timestamp", but jut wants "time"
+    # you could of course do this with a mutate filter but lets make
+    # the common case easy...
+    if event.include?('@timestamp')
+      event['time'] = event.remove('@timestamp')
+    end
+
+    if event.include?('@version')
+      event.remove('@version')
+    end
+
     evt = event.to_hash
     @batcher.receive(evt)
+  end
+
+  public
+  def teardown
+    if @verbose
+      puts "tearing down jut output plugin"
+    end
+
+    @batcher.stop
+
+    if @verbose
+      puts "finished"
+    end
   end
 end
