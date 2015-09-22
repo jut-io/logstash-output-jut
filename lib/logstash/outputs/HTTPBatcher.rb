@@ -19,7 +19,17 @@ class LogStash::Outputs::HTTPBatcher
     @sent = 0 # For debugging use
     @limit = limit
     @verbose = verbose
+
+    @stopped = false
   end # def initialize
+
+  def stop
+    @stopped = true
+
+    @req_threads.each do |thr|
+      thr.join
+    end
+  end
 
   def receive(event)
     @mutex.synchronize do
@@ -36,7 +46,7 @@ class LogStash::Outputs::HTTPBatcher
 
       Thread.current["connection"] = connection
 
-      loop do
+      while !@stopped || !@queue.empty? do
         time = make_request
         if time < @interval
           sleep(@interval - time)

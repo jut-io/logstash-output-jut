@@ -58,7 +58,14 @@ class LogStash::Outputs::Jut < LogStash::Outputs::Base
 
   public
   def teardown
-    puts "tearing down jut output plugin"
-    sleep(5)
+    if @verbose
+      puts "tearing down jut output plugin"
+    end
+
+    @batcher.stop
+
+    if @verbose
+      puts "finished"
+    end
   end
 end
