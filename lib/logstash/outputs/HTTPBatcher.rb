@@ -71,11 +71,13 @@ class LogStash::Outputs::HTTPBatcher
     @mutex.synchronize do
       # Moves the first @limit number of events into the current thread queue
       tosend = @queue.shift(@limit)
-      @sent = @sent + tosend.size
-      if @verbose
-        puts "Sent: #{@sent.to_s}, Remaining: #{tosend.size}"
-      end
     end
+
+    @sent = @sent + tosend.size
+    if @verbose
+      puts "Sent: #{@sent.to_s}, Remaining: #{tosend.size}"
+    end
+
     if !tosend.empty?
       request.body = tosend.to_json
       response = Thread.current["connection"].request request
