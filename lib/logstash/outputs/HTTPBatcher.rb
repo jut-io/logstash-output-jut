@@ -2,61 +2,99 @@
 require "logstash/namespace"
 require "json"
 require "thread"
+require "work_queue"
 require "net/https"
 require "openssl"
 require "uri"
 
 class LogStash::Outputs::HTTPBatcher
-  def initialize(url, interval, logger, headers, limit, threads, verbose)
-    @mutex = Mutex.new
-    @headers = headers
-    @content_type = "application/json"
+  def initialize(url, idle_flush, logger, headers, limit, nthreads, verbose)
     @url = URI.parse(url)
-    @queue = []
-    @interval = interval
+    @idle_flush = idle_flush
     @logger = logger
-    @req_threads = Array.new(threads) { create_thread() }
-    @sent = 0 # For debugging use
+    @headers = headers
     @limit = limit
     @verbose = verbose
 
+    @content_type = "application/json"
     @stopped = false
+
+    @queue_mutex = Mutex.new
+    @queue = []
+
+    @flush_time = nil
+    @flush_thread = create_flush_thread()
+    @work_queue = WorkQueue.new nthreads, nil
   end # def initialize
 
   def stop
-    @stopped = true
-
-    @req_threads.each do |thr|
-      thr.join
+    if @verbose
+      puts "stopping batcher (have #{@queue.size()} queued message)"
     end
+
+    @stopped = true
+    while @queue.size() > 0 do
+      enqueue_batch
+    end
+
+    @flush_thread.join
+    @work_queue.join
   end
 
   def receive(event)
-    @mutex.synchronize do
+    size = 0
+    @queue_mutex.synchronize do
       @queue << event
+      size = @queue.size
     end
+
+    if size >= @limit
+      enqueue_batch
+    end
+
+    @flush_time = Time.now + @idle_flush
   end # def receive
 
-  def create_thread
-    # Creates a thread that makes a request at the given interval
+  def create_flush_thread
     return Thread.new do
+      while !@stopped do
+        now = Time.now
+        if @flush_time != nil && @flush_time <= now
+          enqueue_batch
+          @flush_time = nil
+        end
+
+        sleep(@flush_time == nil ? @idle_flush : @flush_time - now)
+      end
+    end
+  end
+
+  def enqueue_batch
+    tosend = []
+    @queue_mutex.synchronize do
+      tosend = @queue.shift(@limit)
+    end
+
+    if tosend.size > 0
+      @work_queue.enqueue_b do
+        send_batch tosend
+      end
+    end
+  end
+
+  def send_batch(tosend)
+    connection = Thread.current["connection"]
+    if connection == nil
+      if @verbose
+        puts "creating new https connection"
+      end
+
       connection = Net::HTTP.new(@url.host, @url.port)
       connection.use_ssl = true
       connection.verify_mode = OpenSSL::SSL::VERIFY_PEER
-
       Thread.current["connection"] = connection
-
-      while !@stopped || !@queue.empty? do
-        time = make_request
-        if time < @interval
-          sleep(@interval - time)
-        end
-      end
     end
-  end # def create_thread
 
-  def make_request
-    return -1 if @queue.empty?
     beginning = Time.now
     request = Net::HTTP::Post.new(@url.request_uri)
 
@@ -67,44 +105,30 @@ class LogStash::Outputs::HTTPBatcher
       end
     end
     
-    tosend = []
-    @mutex.synchronize do
-      # Moves the first @limit number of events into the current thread queue
-      tosend = @queue.shift(@limit)
-    end
-
-    @sent = @sent + tosend.size
     if @verbose
-      puts "Sent: #{@sent.to_s}, Remaining: #{tosend.size}"
+      puts "posting #{tosend.size} records"
     end
 
-    if !tosend.empty?
-      request.body = tosend.to_json
-      response = Thread.current["connection"].request request
+    request.body = tosend.to_json
+    response = connection.request request
 
-      status = response.code
-      rbody = response.read_body
+    status = response.code
+    rbody = response.read_body
 
-      if status != "200"
-        raise "POST failed with status #{status} (#{rbody})"
-      end
-
-
-      if @verbose
-        time = Time.now - beginning
-        puts "POST response in #{time.to_s} #{status} #{rbody}"
-      end
+    if status != "200"
+      raise "POST failed with status #{status} (#{rbody})"
     end
 
-    end_time = Time.now
-    time_elapsed = end_time - beginning
-    return time_elapsed
+    if @verbose
+      time = Time.now - beginning
+      puts "POST response in #{time.to_s} #{status} #{rbody}"
+    end
+
   rescue Exception => e
     if @verbose
       @logger.warn("Unhandled exception", :request => request, :exception => e, :stacktrace => e.backtrace)
     else
       @logger.warn("Unhandled exception", :host => request["host"], :exception => e, :stacktrace => e.backtrace)
     end
-    return -1
-  end # def make_request
+  end
 end
