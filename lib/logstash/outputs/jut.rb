@@ -44,4 +44,10 @@ class LogStash::Outputs::Jut < LogStash::Outputs::Base
     evt = event.to_hash
     @batcher.receive(evt)
   end
+
+  public
+  def teardown
+    puts "tearing down jut output plugin"
+    sleep(5)
+  end
 end
