@@ -54,6 +54,9 @@ class LogStash::Outputs::Jut < LogStash::Outputs::Base
 
     evt = event.to_hash
     @batcher.receive(evt)
+
+  rescue Exception => e
+    @logger.warn("Unhandled exception", :exception => e, :stacktrace => e.backtrace)
   end
 
   public
