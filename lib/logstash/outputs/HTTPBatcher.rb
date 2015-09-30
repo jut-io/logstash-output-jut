@@ -1,6 +1,6 @@
 # encoding: utf-8
 require "logstash/namespace"
-require "json"
+require "logstash/json"
 require "thread"
 require "work_queue"
 require "net/https"
@@ -109,7 +109,7 @@ class LogStash::Outputs::HTTPBatcher
       puts "posting #{tosend.size} records"
     end
 
-    request.body = tosend.to_json
+    request.body = LogStash::Json.dump(tosend)
     response = connection.request request
 
     status = response.code

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-output-jut'
-  s.version = "0.2"
+  s.version = "0.3.1"
   s.licenses = ["Apache License (2.0)"]
   s.summary = "sends records to a Jut data engine"
   s.description = "logstash output plugin that sends records to a Jut data engine"
